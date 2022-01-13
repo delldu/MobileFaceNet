@@ -16,6 +16,8 @@ from config import device
 from data_gen import data_transforms
 from utils import align_face, get_central_face_attributes, get_all_face_attributes, draw_bboxes, ensure_folder
 
+import pdb
+
 angles_file = 'data/angles.txt'
 lfw_pickle = 'data/lfw_funneled.pkl'
 transformer = data_transforms['val']
@@ -65,6 +67,7 @@ def process():
 
 def get_image(samples, file):
     filtered = [sample for sample in samples if file in sample['full_path'].replace('\\', '/')]
+
     assert (len(filtered) == 1), 'len(filtered): {} file:{}'.format(len(filtered), file)
     sample = filtered[0]
     full_path = sample['full_path']
