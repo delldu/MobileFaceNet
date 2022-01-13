@@ -3,7 +3,6 @@ import torch.nn as nn
 
 
 class FocalLoss(nn.Module):
-
     def __init__(self, gamma=0):
         super(FocalLoss, self).__init__()
         self.gamma = gamma
@@ -14,6 +13,7 @@ class FocalLoss(nn.Module):
         p = torch.exp(-logp)
         loss = (1 - p) ** self.gamma * logp
         return loss.mean()
+
 
 # class FocalLoss(nn.Module):
 #     def __init__(self, gamma=0, size_average=True):

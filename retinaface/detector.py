@@ -12,8 +12,9 @@ from retinaface.utils.nms.py_cpu_nms import py_cpu_nms
 
 import pdb
 
+
 class RetinafaceDetector:
-    def __init__(self, net='mnet', type='cuda'):
+    def __init__(self, net="mnet", type="cuda"):
         cudnn.benchmark = True
         self.net = net
         self.device = torch.device(type)
@@ -53,13 +54,13 @@ class RetinafaceDetector:
         # (Pdb) landms.size() -- [1, 2688, 10]
 
         # cfg_mnet --
-        # {'name': 'mobilenet0.25', 
-        # 'min_sizes': [[16, 32], [64, 128], [256, 512]], 
-        # 'steps': [8, 16, 32], 'variance': [0.1, 0.2], 
-        # 'clip': False, 'loc_weight': 2.0, 'gpu_train': True, 
-        # 'batch_size': 32, 'ngpu': 1, 'epoch': 250, 'decay1': 190, 'decay2': 220, 
-        # 'image_size': 640, 'pretrain': False, 
-        # 'return_layers': {'stage1': 1, 'stage2': 2, 'stage3': 3}, 
+        # {'name': 'mobilenet0.25',
+        # 'min_sizes': [[16, 32], [64, 128], [256, 512]],
+        # 'steps': [8, 16, 32], 'variance': [0.1, 0.2],
+        # 'clip': False, 'loc_weight': 2.0, 'gpu_train': True,
+        # 'batch_size': 32, 'ngpu': 1, 'epoch': 250, 'decay1': 190, 'decay2': 220,
+        # 'image_size': 640, 'pretrain': False,
+        # 'return_layers': {'stage1': 1, 'stage2': 2, 'stage3': 3},
         # 'in_channel': 32, 'out_channel': 64}
 
         # im_height, im_width -- (250, 250)
@@ -70,16 +71,27 @@ class RetinafaceDetector:
 
         # cfg_mnet['variance'] -- [0.1, 0.2]
         # prior_data.size() -- torch.Size([2688, 4])
-        boxes = decode(loc.data.squeeze(0), prior_data, cfg_mnet['variance'])
+        boxes = decode(loc.data.squeeze(0), prior_data, cfg_mnet["variance"])
         boxes = boxes * scale / resize
         boxes = boxes.cpu().numpy()
         # boxes.shape -- (2688, 4)
 
         scores = conf.squeeze(0).data.cpu().numpy()[:, 1]
-        landms = decode_landm(landms.data.squeeze(0), prior_data, cfg_mnet['variance'])
-        scale1 = torch.Tensor([img.shape[3], img.shape[2], img.shape[3], img.shape[2],
-                               img.shape[3], img.shape[2], img.shape[3], img.shape[2],
-                               img.shape[3], img.shape[2]])
+        landms = decode_landm(landms.data.squeeze(0), prior_data, cfg_mnet["variance"])
+        scale1 = torch.Tensor(
+            [
+                img.shape[3],
+                img.shape[2],
+                img.shape[3],
+                img.shape[2],
+                img.shape[3],
+                img.shape[2],
+                img.shape[3],
+                img.shape[2],
+                img.shape[3],
+                img.shape[2],
+            ]
+        )
         scale1 = scale1.to(self.device)
         landms = landms * scale1 / resize
         landms = landms.cpu().numpy()
@@ -108,11 +120,11 @@ class RetinafaceDetector:
         dets = dets[:keep_top_k, :]
         landms = landms[:keep_top_k, :]
         # print(landms.shape)
-        landms = landms.reshape((-1, 5, 2))
+        landms = landms.reshape(-1, 5, 2)
         # print(landms.shape)
-        landms = landms.transpose((0, 2, 1))
+        landms = landms.transpose(0, 2, 1)
         # print(landms.shape)
-        landms = landms.reshape(-1, 10, )
+        landms = landms.reshape(-1, 10)
         # print(landms.shape)
 
         # dets.shape, landms.shape -- ((1, 5), (1, 10))
@@ -124,4 +136,4 @@ class RetinafaceDetector:
         return dets, landms
 
 
-detector = RetinafaceDetector(net='mnet')
+detector = RetinafaceDetector(net="mnet")

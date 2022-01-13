@@ -18,7 +18,7 @@ class MFNptimizer(object):
         if self.step_num in [36000, 52000, 78000, 100000]:
             self.lr = self.lr / 10
             for param_group in self.optimizer.param_groups:
-                param_group['lr'] = self.lr
+                param_group["lr"] = self.lr
 
     def clip_gradient(self, grad_clip):
         """
@@ -27,6 +27,6 @@ class MFNptimizer(object):
         :param grad_clip: clip value
         """
         for group in self.optimizer.param_groups:
-            for param in group['params']:
+            for param in group["params"]:
                 if param.grad is not None:
                     param.grad.data.clamp_(-grad_clip, grad_clip)

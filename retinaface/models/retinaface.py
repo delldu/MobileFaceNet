@@ -8,6 +8,7 @@ from retinaface.models.net import MobileNetV1 as MobileNetV1
 from retinaface.models.net import SSH as SSH
 import pdb
 
+
 class ClassHead(nn.Module):
     def __init__(self, inchannels=512, num_anchors=3):
         super(ClassHead, self).__init__()
@@ -46,7 +47,7 @@ class LandmarkHead(nn.Module):
 
 
 class RetinaFace(nn.Module):
-    def __init__(self, cfg=None, phase='train'):
+    def __init__(self, cfg=None, phase="train"):
         """
         :param cfg:  Network related settings.
         :param phase: train or test.
@@ -75,33 +76,34 @@ class RetinaFace(nn.Module):
         #  'variance': [0.1, 0.2]}
 
         # ==> cfg['name'] -- 'mobilenet0.25'
-        if cfg['name'] == 'mobilenet0.25':
+        if cfg["name"] == "mobilenet0.25":
             backbone = MobileNetV1()
             # cfg['pretrain'] -- False
-            if cfg['pretrain']:
-                checkpoint = torch.load("./weights/mobilenetV1X0.25_pretrain.tar", map_location=torch.device('cpu'))
-                from collections import OrderedDict
-                new_state_dict = OrderedDict()
-                for k, v in checkpoint['state_dict'].items():
-                    name = k[7:]  # remove module.
-                    new_state_dict[name] = v
-                # load params
-                backbone.load_state_dict(new_state_dict)
-        elif cfg['name'] == 'Resnet50':
+            # if cfg['pretrain']:
+            #     checkpoint = torch.load("./weights/mobilenetV1X0.25_pretrain.tar", map_location=torch.device('cpu'))
+            #     from collections import OrderedDict
+            #     new_state_dict = OrderedDict()
+            #     for k, v in checkpoint['state_dict'].items():
+            #         name = k[7:]  # remove module.
+            #         new_state_dict[name] = v
+            #     # load params
+            #     backbone.load_state_dict(new_state_dict)
+        elif cfg["name"] == "Resnet50":
             import torchvision.models as models
-            backbone = models.resnet50(pretrained=cfg['pretrain'])
+
+            backbone = models.resnet50(pretrained=cfg["pretrain"])
 
         # cfg['return_layers'] -- {'stage1': 1, 'stage2': 2, 'stage3': 3}
-        self.body = _utils.IntermediateLayerGetter(backbone, cfg['return_layers'])
+        self.body = _utils.IntermediateLayerGetter(backbone, cfg["return_layers"])
         # cfg['in_channel'] -- 32
-        in_channels_stage2 = cfg['in_channel']
+        in_channels_stage2 = cfg["in_channel"]
         in_channels_list = [
             in_channels_stage2 * 2,
             in_channels_stage2 * 4,
             in_channels_stage2 * 8,
         ]
         # cfg['out_channel'] -- 64
-        out_channels = cfg['out_channel']
+        out_channels = cfg["out_channel"]
         self.fpn = FPN(in_channels_list, out_channels)
         self.ssh1 = SSH(out_channels, out_channels)
         self.ssh2 = SSH(out_channels, out_channels)
@@ -163,7 +165,7 @@ class RetinaFace(nn.Module):
         # classifications.size() -- [1, 2688, 2]
         # ldm_regressions.size() -- [1, 2688, 10]
 
-        if self.phase == 'train':
+        if self.phase == "train":
             output = (bbox_regressions, classifications, ldm_regressions)
         else:
             output = (bbox_regressions, F.softmax(classifications, dim=-1), ldm_regressions)

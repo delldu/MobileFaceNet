@@ -7,7 +7,7 @@ def conv_bn(inp, oup, stride=1, leaky=0):
     return nn.Sequential(
         nn.Conv2d(inp, oup, 3, stride, 1, bias=False),
         nn.BatchNorm2d(oup),
-        nn.LeakyReLU(negative_slope=leaky, inplace=True)
+        nn.LeakyReLU(negative_slope=leaky, inplace=True),
     )
 
 
@@ -22,7 +22,7 @@ def conv_bn1X1(inp, oup, stride, leaky=0):
     return nn.Sequential(
         nn.Conv2d(inp, oup, 1, stride, padding=0, bias=False),
         nn.BatchNorm2d(oup),
-        nn.LeakyReLU(negative_slope=leaky, inplace=True)
+        nn.LeakyReLU(negative_slope=leaky, inplace=True),
     )
 
 
@@ -31,7 +31,6 @@ def conv_dw(inp, oup, stride, leaky=0.1):
         nn.Conv2d(inp, inp, 3, stride, 1, groups=inp, bias=False),
         nn.BatchNorm2d(inp),
         nn.LeakyReLU(negative_slope=leaky, inplace=True),
-
         nn.Conv2d(inp, oup, 1, 1, 0, bias=False),
         nn.BatchNorm2d(oup),
         nn.LeakyReLU(negative_slope=leaky, inplace=True),
@@ -43,7 +42,7 @@ class SSH(nn.Module):
         super(SSH, self).__init__()
         assert out_channel % 4 == 0
         leaky = 0
-        if (out_channel <= 64):
+        if out_channel <= 64:
             leaky = 0.1
         self.conv3X3 = conv_bn_no_relu(in_channel, out_channel // 2, stride=1)
 
@@ -71,7 +70,7 @@ class FPN(nn.Module):
     def __init__(self, in_channels_list, out_channels):
         super(FPN, self).__init__()
         leaky = 0
-        if (out_channels <= 64):
+        if out_channels <= 64:
             leaky = 0.1
         self.output1 = conv_bn1X1(in_channels_list[0], out_channels, stride=1, leaky=leaky)
         self.output2 = conv_bn1X1(in_channels_list[1], out_channels, stride=1, leaky=leaky)

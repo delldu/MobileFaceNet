@@ -6,6 +6,7 @@ from retinaface.data import cfg_mnet, cfg_re50
 from retinaface.models.retinaface import RetinaFace
 import pdb
 
+
 def check_keys(model, pretrained_state_dict):
     ckpt_keys = set(pretrained_state_dict.keys())
     model_keys = set(model.state_dict().keys())
@@ -15,36 +16,36 @@ def check_keys(model, pretrained_state_dict):
     # print('Missing keys:{}'.format(len(missing_keys)))
     # print('Unused checkpoint keys:{}'.format(len(unused_pretrained_keys)))
     # print('Used keys:{}'.format(len(used_pretrained_keys)))
-    assert len(used_pretrained_keys) > 0, 'load NONE from pretrained checkpoint'
+    assert len(used_pretrained_keys) > 0, "load NONE from pretrained checkpoint"
     return True
 
 
 def remove_prefix(state_dict, prefix):
-    ''' Old style model is stored with all names of parameters sharing common prefix 'module.' '''
+    """Old style model is stored with all names of parameters sharing common prefix 'module.'"""
     # print('remove prefix \'{}\''.format(prefix))
     f = lambda x: x.split(prefix, 1)[-1] if x.startswith(prefix) else x
     return {f(key): value for key, value in state_dict.items()}
 
 
-def load_model(net='mnet'):
+def load_model(net="mnet"):
     # pp net -- 'mnet'
     # ==> pretrained_path -- 'retinaface/weights/mobilenet0.25_Final.pth'
-    if net == 'mnet':
-        pretrained_path = 'retinaface/weights/mobilenet0.25_Final.pth'
+    if net == "mnet":
+        pretrained_path = "retinaface/weights/mobilenet0.25_Final.pth"
         # print('Loading pretrained model from {}'.format(pretrained_path))
-        model = RetinaFace(cfg=cfg_mnet, phase='test')
+        model = RetinaFace(cfg=cfg_mnet, phase="test")
     else:
-        pretrained_path = 'retinaface/weights/Resnet50_Final.pth'
+        pretrained_path = "retinaface/weights/Resnet50_Final.pth"
         # print('Loading pretrained model from {}'.format(pretrained_path))
-        model = RetinaFace(cfg=cfg_re50, phase='test')
+        model = RetinaFace(cfg=cfg_re50, phase="test")
 
     device = torch.cuda.current_device()
     pretrained_dict = torch.load(pretrained_path, map_location=lambda storage, loc: storage.cuda(device))
     # "state_dict" in pretrained_dict.keys() -- False
     if "state_dict" in pretrained_dict.keys():
-        pretrained_dict = remove_prefix(pretrained_dict['state_dict'], 'module.')
+        pretrained_dict = remove_prefix(pretrained_dict["state_dict"], "module.")
     else:
-        pretrained_dict = remove_prefix(pretrained_dict, 'module.')
+        pretrained_dict = remove_prefix(pretrained_dict, "module.")
     check_keys(model, pretrained_dict)
     model.load_state_dict(pretrained_dict, strict=False)
     # print('Finished loading model!')

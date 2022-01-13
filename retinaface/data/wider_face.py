@@ -8,13 +8,13 @@ class WiderFaceDetection(data.Dataset):
         self.preproc = preproc
         self.imgs_path = []
         self.words = []
-        f = open(txt_path, 'r')
+        f = open(txt_path, "r")
         lines = f.readlines()
         isFirst = True
         labels = []
         for line in lines:
             line = line.rstrip()
-            if line.startswith('#'):
+            if line.startswith("#"):
                 if isFirst is True:
                     isFirst = False
                 else:
@@ -22,10 +22,10 @@ class WiderFaceDetection(data.Dataset):
                     self.words.append(labels_copy)
                     labels.clear()
                 path = line[2:]
-                path = txt_path.replace('label.txt', 'images/') + path
+                path = txt_path.replace("label.txt", "images/") + path
                 self.imgs_path.append(path)
             else:
-                line = line.split(' ')
+                line = line.split(" ")
                 label = [float(x) for x in line]
                 labels.append(label)
 
@@ -61,7 +61,7 @@ class WiderFaceDetection(data.Dataset):
             annotation[0, 11] = label[14]  # l3_y
             annotation[0, 12] = label[16]  # l4_x
             annotation[0, 13] = label[17]  # l4_y
-            if (annotation[0, 4] < 0):
+            if annotation[0, 4] < 0:
                 annotation[0, 14] = -1
             else:
                 annotation[0, 14] = 1

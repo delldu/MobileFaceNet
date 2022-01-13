@@ -17,7 +17,7 @@ def train_net(args):
     np.random.seed(7)
     checkpoint = args.checkpoint
     start_epoch = 0
-    best_acc = float('-inf')
+    best_acc = float("-inf")
     writer = SummaryWriter()
     epochs_since_improvement = 0
 
@@ -26,26 +26,33 @@ def train_net(args):
         model = MobileFaceNet()
         metric_fc = ArcMarginModel(args)
 
-        optimizer = torch.optim.SGD([{'params': model.conv1.parameters()},
-                                     {'params': model.dw_conv.parameters()},
-                                     {'params': model.features.parameters()},
-                                     {'params': model.conv2.parameters()},
-                                     {'params': model.gdconv.parameters()},
-                                     {'params': model.conv3.parameters(), 'weight_decay': 4e-4},
-                                     {'params': model.bn.parameters()},
-                                     {'params': metric_fc.parameters()}],
-                                    lr=args.lr, momentum=args.mom, weight_decay=args.weight_decay, nesterov=True)
+        optimizer = torch.optim.SGD(
+            [
+                {"params": model.conv1.parameters()},
+                {"params": model.dw_conv.parameters()},
+                {"params": model.features.parameters()},
+                {"params": model.conv2.parameters()},
+                {"params": model.gdconv.parameters()},
+                {"params": model.conv3.parameters(), "weight_decay": 4e-4},
+                {"params": model.bn.parameters()},
+                {"params": metric_fc.parameters()},
+            ],
+            lr=args.lr,
+            momentum=args.mom,
+            weight_decay=args.weight_decay,
+            nesterov=True,
+        )
 
         model = nn.DataParallel(model)
         metric_fc = nn.DataParallel(metric_fc)
 
     else:
         checkpoint = torch.load(checkpoint)
-        start_epoch = checkpoint['epoch'] + 1
-        epochs_since_improvement = checkpoint['epochs_since_improvement']
-        model = checkpoint['model']
-        metric_fc = checkpoint['metric_fc']
-        optimizer = checkpoint['optimizer']
+        start_epoch = checkpoint["epoch"] + 1
+        epochs_since_improvement = checkpoint["epochs_since_improvement"]
+        model = checkpoint["model"]
+        metric_fc = checkpoint["metric_fc"]
+        optimizer = checkpoint["optimizer"]
 
     logger = get_logger()
 
@@ -60,7 +67,7 @@ def train_net(args):
         criterion = nn.CrossEntropyLoss().to(device)
 
     # Custom dataloaders
-    train_dataset = ArcFaceDataset('train')
+    train_dataset = ArcFaceDataset("train")
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
 
     scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20], gamma=0.1)
@@ -68,25 +75,27 @@ def train_net(args):
     # Epochs
     for epoch in range(start_epoch, args.end_epoch):
         # One epoch's training
-        train_loss, train_acc = train(train_loader=train_loader,
-                                      model=model,
-                                      metric_fc=metric_fc,
-                                      criterion=criterion,
-                                      optimizer=optimizer,
-                                      epoch=epoch,
-                                      logger=logger)
+        train_loss, train_acc = train(
+            train_loader=train_loader,
+            model=model,
+            metric_fc=metric_fc,
+            criterion=criterion,
+            optimizer=optimizer,
+            epoch=epoch,
+            logger=logger,
+        )
 
-        lr = optimizer.param_groups[0]['lr']
-        print('\nLearning rate={}\n'.format(lr))
+        lr = optimizer.param_groups[0]["lr"]
+        print("\nLearning rate={}\n".format(lr))
 
-        writer.add_scalar('model/train_loss', train_loss, epoch)
-        writer.add_scalar('model/train_acc', train_acc, epoch)
-        writer.add_scalar('model/learning_rate', lr, epoch)
+        writer.add_scalar("model/train_loss", train_loss, epoch)
+        writer.add_scalar("model/train_acc", train_acc, epoch)
+        writer.add_scalar("model/learning_rate", lr, epoch)
 
         # One epoch's validation
         lfw_acc, threshold = lfw_test(model)
-        writer.add_scalar('model/lfw_acc', lfw_acc, epoch)
-        writer.add_scalar('model/threshold', threshold, epoch)
+        writer.add_scalar("model/lfw_acc", lfw_acc, epoch)
+        writer.add_scalar("model/threshold", threshold, epoch)
 
         # Check if there was an improvement
         is_best = lfw_acc > best_acc
@@ -139,11 +148,13 @@ def train(train_loader, model, metric_fc, criterion, optimizer, epoch, logger):
 
         # Print status
         if i % print_freq == 0:
-            logger.info('Epoch: [{0}][{1}/{2}]\t'
-                        'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                        'Top5 Accuracy {top5_accs.val:.3f} ({top5_accs.avg:.3f})'.format(epoch, i, len(train_loader),
-                                                                                         loss=losses,
-                                                                                         top5_accs=top5_accs))
+            logger.info(
+                "Epoch: [{0}][{1}/{2}]\t"
+                "Loss {loss.val:.4f} ({loss.avg:.4f})\t"
+                "Top5 Accuracy {top5_accs.val:.3f} ({top5_accs.avg:.3f})".format(
+                    epoch, i, len(train_loader), loss=losses, top5_accs=top5_accs
+                )
+            )
 
     return losses.avg, top5_accs.avg
 
@@ -154,5 +165,5 @@ def main():
     train_net(args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

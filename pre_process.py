@@ -11,7 +11,7 @@ from utils import ensure_folder
 
 if __name__ == "__main__":
     ensure_folder(IMG_DIR)
-    imgrec = recordio.MXIndexedRecordIO(path_imgidx, path_imgrec, 'r')
+    imgrec = recordio.MXIndexedRecordIO(path_imgidx, path_imgrec, "r")
     # print(len(imgrec))
 
     samples = []
@@ -30,8 +30,8 @@ if __name__ == "__main__":
             # print(type(header.label))
             label = int(header.label)
             class_ids.add(label)
-            filename = '{}.jpg'.format(i)
-            samples.append({'img': filename, 'label': label})
+            filename = "{}.jpg".format(i)
+            samples.append({"img": filename, "label": label})
             filename = os.path.join(IMG_DIR, filename)
             cv.imwrite(filename, img)
             # except KeyboardInterrupt:
@@ -39,10 +39,10 @@ if __name__ == "__main__":
     except Exception as err:
         print(err)
 
-    with open(pickle_file, 'wb') as file:
+    with open(pickle_file, "wb") as file:
         pickle.dump(samples, file)
 
-    print('num_samples: ' + str(len(samples)))
+    print("num_samples: " + str(len(samples)))
 
     class_ids = list(class_ids)
     print(len(class_ids))

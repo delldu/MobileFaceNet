@@ -14,12 +14,12 @@ from config import device
 from data_gen import data_transforms
 from utils import align_face, get_central_face_attributes
 
-checkpoint = 'BEST_checkpoint.tar'
-print('loading model: {}...'.format(checkpoint))
+checkpoint = "BEST_checkpoint.tar"
+print("loading model: {}...".format(checkpoint))
 checkpoint = torch.load(checkpoint)
-model = checkpoint['model'].to(device)
+model = checkpoint["model"].to(device)
 model.eval()
-transformer = data_transforms['val']
+transformer = data_transforms["val"]
 
 
 def walkdir(folder, ext):
@@ -43,23 +43,23 @@ def crop_one_image(filepath, oldkey, newkey):
 
 
 def crop(path, oldkey, newkey):
-    print('Counting images under {}...'.format(path))
+    print("Counting images under {}...".format(path))
     # Preprocess the total files count
     filecounter = 0
-    for filepath in walkdir(path, '.jpg'):
+    for filepath in walkdir(path, ".jpg"):
         filecounter += 1
 
-    for filepath in tqdm(walkdir(path, '.jpg'), total=filecounter, unit="files"):
+    for filepath in tqdm(walkdir(path, ".jpg"), total=filecounter, unit="files"):
         crop_one_image(filepath, oldkey, newkey)
 
-    print('{} images were cropped successfully.'.format(filecounter))
+    print("{} images were cropped successfully.".format(filecounter))
 
 
 def gen_feature(path):
-    print('gen features {}...'.format(path))
+    print("gen features {}...".format(path))
     # Preprocess the total files count
     files = []
-    for filepath in walkdir(path, '.jpg'):
+    for filepath in walkdir(path, ".jpg"):
         files.append(filepath)
     file_count = len(files)
 
@@ -80,45 +80,45 @@ def gen_feature(path):
             for idx in range(0, length):
                 i = start_idx + idx
                 filepath = files[i]
-                tarfile = filepath + '_0.bin'
+                tarfile = filepath + "_0.bin"
                 feature = features[idx]
                 write_feature(tarfile, feature / np.linalg.norm(feature))
 
 
 def get_image(img, transformer):
     img = img[..., ::-1]  # RGB
-    img = Image.fromarray(img, 'RGB')  # RGB
+    img = Image.fromarray(img, "RGB")  # RGB
     img = transformer(img)
     return img.to(device)
 
 
 def read_feature(filename):
-    f = open(filename, 'rb')
-    rows, cols, stride, type_ = struct.unpack('iiii', f.read(4 * 4))
-    mat = np.fromstring(f.read(rows * 4), dtype=np.dtype('float32'))
+    f = open(filename, "rb")
+    rows, cols, stride, type_ = struct.unpack("iiii", f.read(4 * 4))
+    mat = np.fromstring(f.read(rows * 4), dtype=np.dtype("float32"))
     return mat.reshape(rows, 1)
 
 
 def write_feature(filename, m):
-    header = struct.pack('iiii', m.shape[0], 1, 4, 5)
-    f = open(filename, 'wb')
+    header = struct.pack("iiii", m.shape[0], 1, 4, 5)
+    f = open(filename, "wb")
     f.write(header)
     f.write(m.data)
 
 
 def remove_noise():
-    for line in open('megaface/megaface_noises.txt', 'r'):
-        filename = 'megaface/MegaFace_aligned/FlickrFinal2/' + line.strip() + '_0.bin'
+    for line in open("megaface/megaface_noises.txt", "r"):
+        filename = "megaface/MegaFace_aligned/FlickrFinal2/" + line.strip() + "_0.bin"
         if os.path.exists(filename):
             print(filename)
             os.remove(filename)
 
     noise = set()
-    for line in open('megaface/facescrub_noises.txt', 'r'):
-        noise.add((line.strip().replace('png', 'jpg') + '0.bin').replace('_', '').replace(' ', ''))
-    for root, dirs, files in os.walk('megaface/facescrub_images'):
+    for line in open("megaface/facescrub_noises.txt", "r"):
+        noise.add((line.strip().replace("png", "jpg") + "0.bin").replace("_", "").replace(" ", ""))
+    for root, dirs, files in os.walk("megaface/facescrub_images"):
         for f in files:
-            if f.replace('_', '').replace(' ', '') in noise:
+            if f.replace("_", "").replace(" ", "") in noise:
                 filename = os.path.join(root, f)
                 if os.path.exists(filename):
                     print(filename)
@@ -126,11 +126,11 @@ def remove_noise():
 
 
 def test():
-    root1 = '/root/lin/data/FaceScrub_aligned/Benicio Del Toro'
-    root2 = '/root/lin/data/FaceScrub_aligned/Ben Kingsley'
+    root1 = "/root/lin/data/FaceScrub_aligned/Benicio Del Toro"
+    root2 = "/root/lin/data/FaceScrub_aligned/Ben Kingsley"
     for f1 in os.listdir(root1):
         for f2 in os.listdir(root2):
-            if f1.lower().endswith('.bin') and f2.lower().endswith('.bin'):
+            if f1.lower().endswith(".bin") and f2.lower().endswith(".bin"):
                 filename1 = os.path.join(root1, f1)
                 filename2 = os.path.join(root2, f2)
                 fea1 = read_feature(filename1)
@@ -139,39 +139,39 @@ def test():
 
 
 def match_result():
-    with open('matches_facescrub_megaface_0_1000000_1.json', 'r') as load_f:
+    with open("matches_facescrub_megaface_0_1000000_1.json", "r") as load_f:
         load_dict = json.load(load_f)
         print(load_dict)
         for i in range(len(load_dict)):
-            print(load_dict[i]['probes'])
+            print(load_dict[i]["probes"])
 
 
 def pngtojpg(path):
     for root, dirs, files in os.walk(path):
         for f in files:
-            if os.path.splitext(f)[1] == '.png':
+            if os.path.splitext(f)[1] == ".png":
                 img = cv.imread(os.path.join(root, f))
                 newfilename = f.replace(".png", ".jpg")
                 cv.imwrite(os.path.join(root, newfilename), img)
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Train face network')
+    parser = argparse.ArgumentParser(description="Train face network")
     # general
-    parser.add_argument('--action', default='crop_megaface', help='action')
+    parser.add_argument("--action", default="crop_megaface", help="action")
     args = parser.parse_args()
     return args
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = parse_args()
-    if args.action == 'crop_megaface':
-        crop('megaface/MegaFace/FlickrFinal2', 'MegaFace', 'MegaFace_aligned')
-    elif args.action == 'crop_facescrub':
-        crop('megaface/facescrub_images', 'facescrub', 'facescrub_aligned')
-    elif args.action == 'gen_features':
-        gen_feature('megaface/facescrub_images')
-        gen_feature('megaface/MegaFace_aligned/FlickrFinal2')
+    if args.action == "crop_megaface":
+        crop("megaface/MegaFace/FlickrFinal2", "MegaFace", "MegaFace_aligned")
+    elif args.action == "crop_facescrub":
+        crop("megaface/facescrub_images", "facescrub", "facescrub_aligned")
+    elif args.action == "gen_features":
+        gen_feature("megaface/facescrub_images")
+        gen_feature("megaface/MegaFace_aligned/FlickrFinal2")
         remove_noise()
-    elif args.action == 'pngtojpg':
-        pngtojpg('megaface/facescrub_images')
+    elif args.action == "pngtojpg":
+        pngtojpg("megaface/facescrub_images")
