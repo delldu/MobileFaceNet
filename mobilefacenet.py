@@ -7,6 +7,7 @@ from torch.nn import Parameter
 
 from config import device, num_classes, emb_size
 
+import pdb
 
 def _make_divisible(v, divisor, min_value=None):
     """
@@ -167,6 +168,7 @@ class MobileFaceNet(nn.Module):
                 nn.init.zeros_(m.bias)
 
     def forward(self, x):
+        # x.size() -- torch.Size([2, 3, 112, 112])
         x = self.conv1(x)
         x = self.dw_conv(x)
         x = self.features(x)
@@ -175,6 +177,7 @@ class MobileFaceNet(nn.Module):
         x = self.conv3(x)
         x = self.bn(x)
         x = x.view(x.size(0), -1)
+        # pp x.size() -- torch.Size([2, 128])
         return x
 
 

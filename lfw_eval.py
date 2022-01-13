@@ -18,6 +18,9 @@ from utils import align_face, get_central_face_attributes, get_all_face_attribut
 
 import pdb
 
+from mobilefacenet import MobileFaceNet
+
+
 angles_file = 'data/angles.txt'
 lfw_pickle = 'data/lfw_funneled.pkl'
 transformer = data_transforms['val']
@@ -82,20 +85,44 @@ def transform(img, flip=False):
     img = img[..., ::-1]  # RGB
     img = Image.fromarray(img, 'RGB')  # RGB
     img = transformer(img)
+    # 'val': transforms.Compose([
+    #     transforms.ToTensor(),
+    #     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    # ]),
+
     img = img.to(device)
     return img
 
 
 def get_feature(model, samples, file):
+    # type(samples), len(samples)
+    # (<class 'list'>, 13233, 
+    # samples[0]
+    #     {'class_id': 0, 'subject': 'Albert_Pujols', 
+    #     'full_path': 'data/lfw_funneled/Albert_Pujols/Albert_Pujols_0001.jpg', 
+    #     'bounding_boxes': [array([ 78.220116, 79.84813, 173.14447, 195.16386 ,0.99955505],
+    #     dtype=float32)], 
+    #     'landmarks': [array([102.47212 , 145.46236 , 125.38177 , 106.445854, 146.62794,
+    #     118.52239 , 115.24954 , 140.87106 , 159.90822 , 156.94913 ],
+    #     dtype=float32)]})
+    # file -- 'Abel_Pacheco/Abel_Pacheco_0001.jpg'
+
     imgs = torch.zeros([2, 3, 112, 112], dtype=torch.float, device=device)
     img = get_image(samples, file)
+    # pp img.shape -- (112, 112, 3)
     imgs[0] = transform(img.copy(), False)
     imgs[1] = transform(img.copy(), True)
     with torch.no_grad():
         output = model(imgs)
+    # output.size() -- torch.Size([2, 128])
     feature_0 = output[0].cpu().numpy()
     feature_1 = output[1].cpu().numpy()
     feature = feature_0 + feature_1
+
+    # (Pdb) feature_0.shape -- (128,)
+    # (Pdb) feature_1.shape -- (128,)
+    # feature.shape -- (128,)
+
     return feature / np.linalg.norm(feature)
 
 
@@ -315,6 +342,7 @@ def get_threshold():
 
 
 def lfw_test(model):
+    debug = True
     filename = 'data/lfw-funneled.tgz'
     if not os.path.isdir('data/lfw_funneled'):
         print('Extracting {}...'.format(filename))
@@ -322,15 +350,27 @@ def lfw_test(model):
 
     # if not os.path.isfile(lfw_pickle):
     print('Processing {}...'.format(lfw_pickle))
-    process()
+    if debug:
+        process()
+    else:
+        if not os.path.exists(lfw_pickle):
+            process()
 
     # if not os.path.isfile(angles_file):
     print('Evaluating {}...'.format(angles_file))
-    evaluate(model)
+    if debug:
+        evaluate(model)
+    else:
+        if not os.path.exists(angles_file):
+            evaluate(model)
 
-    print('Calculating threshold...')
-    # threshold = 70.36
-    thres = get_threshold()
+    # print('Calculating threshold...')
+    if debug:
+        thres = get_threshold()
+    else:
+        thres = 73.49470103143538
+        # threshold = 70.36
+
     print('Calculating accuracy...')
     acc = accuracy(thres)
     print('Accuracy: {}%, threshold: {}'.format(acc * 100, thres))
@@ -344,10 +384,17 @@ if __name__ == "__main__":
     # model = model.to(device)
     # model.eval()
 
-    scripted_model_file = 'mobilefacenet_scripted.pt'
-    model = torch.jit.load(scripted_model_file)
+    # scripted_model_file = 'mobilefacenet_scripted.pt'
+    # model = torch.jit.load(scripted_model_file)
+    # model = model.to(device)
+    # model.eval()
+    # torch.save(model.state_dict(), "/tmp/face.pth")
+
+    model = MobileFaceNet()
+    model.load_state_dict(torch.load("/tmp/face.pth"))
     model = model.to(device)
     model.eval()
+
 
     acc, threshold = lfw_test(model)
 

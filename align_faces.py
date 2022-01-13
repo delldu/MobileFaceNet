@@ -6,6 +6,7 @@ Created on Mon Apr 24 15:43:29 2017
 import cv2
 import numpy as np
 from skimage import transform as trans
+import pdb
 
 # reference facial points, a list of coordinates (x,y)
 REFERENCE_FACIAL_POINTS = [
@@ -29,6 +30,12 @@ def get_reference_facial_points(output_size=None,
                                 inner_padding_factor=0.0,
                                 outer_padding=(0, 0),
                                 default_square=False):
+    # pdb.set_trace()
+    # output_size = (112, 112)
+    # inner_padding_factor = 0.25
+    # outer_padding = (0, 0)
+    # default_square = True
+    
     tmp_5pts = np.array(REFERENCE_FACIAL_POINTS)
     tmp_crop_size = np.array(DEFAULT_CROP_SIZE)
 
@@ -115,6 +122,8 @@ def get_reference_facial_points(output_size=None,
 
 
 def get_affine_transform_matrix(src_pts, dst_pts):
+    pdb.set_trace()
+
     tfm = np.float32([[1, 0, 0], [0, 1, 0]])
     n_pts = src_pts.shape[0]
     ones = np.ones((n_pts, 1), src_pts.dtype)

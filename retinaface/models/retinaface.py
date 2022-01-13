@@ -6,7 +6,7 @@ import torchvision.models._utils as _utils
 from retinaface.models.net import FPN as FPN
 from retinaface.models.net import MobileNetV1 as MobileNetV1
 from retinaface.models.net import SSH as SSH
-
+import pdb
 
 class ClassHead(nn.Module):
     def __init__(self, inchannels=512, num_anchors=3):
@@ -54,8 +54,30 @@ class RetinaFace(nn.Module):
         super(RetinaFace, self).__init__()
         self.phase = phase
         # backbone = MobileNetV1()
+
+        # (Pdb) pp cfg
+        # {'batch_size': 32,
+        #  'clip': False,
+        #  'decay1': 190,
+        #  'decay2': 220,
+        #  'epoch': 250,
+        #  'gpu_train': True,
+        #  'image_size': 640,
+        #  'in_channel': 32,
+        #  'loc_weight': 2.0,
+        #  'min_sizes': [[16, 32], [64, 128], [256, 512]],
+        #  'name': 'mobilenet0.25',
+        #  'ngpu': 1,
+        #  'out_channel': 64,
+        #  'pretrain': False,
+        #  'return_layers': {'stage1': 1, 'stage2': 2, 'stage3': 3},
+        #  'steps': [8, 16, 32],
+        #  'variance': [0.1, 0.2]}
+
+        # ==> cfg['name'] -- 'mobilenet0.25'
         if cfg['name'] == 'mobilenet0.25':
             backbone = MobileNetV1()
+            # cfg['pretrain'] -- False
             if cfg['pretrain']:
                 checkpoint = torch.load("./weights/mobilenetV1X0.25_pretrain.tar", map_location=torch.device('cpu'))
                 from collections import OrderedDict
@@ -69,22 +91,29 @@ class RetinaFace(nn.Module):
             import torchvision.models as models
             backbone = models.resnet50(pretrained=cfg['pretrain'])
 
+        # cfg['return_layers'] -- {'stage1': 1, 'stage2': 2, 'stage3': 3}
         self.body = _utils.IntermediateLayerGetter(backbone, cfg['return_layers'])
+        # cfg['in_channel'] -- 32
         in_channels_stage2 = cfg['in_channel']
         in_channels_list = [
             in_channels_stage2 * 2,
             in_channels_stage2 * 4,
             in_channels_stage2 * 8,
         ]
+        # cfg['out_channel'] -- 64
         out_channels = cfg['out_channel']
         self.fpn = FPN(in_channels_list, out_channels)
         self.ssh1 = SSH(out_channels, out_channels)
         self.ssh2 = SSH(out_channels, out_channels)
         self.ssh3 = SSH(out_channels, out_channels)
 
-        self.ClassHead = self._make_class_head(fpn_num=3, inchannels=cfg['out_channel'])
-        self.BboxHead = self._make_bbox_head(fpn_num=3, inchannels=cfg['out_channel'])
-        self.LandmarkHead = self._make_landmark_head(fpn_num=3, inchannels=cfg['out_channel'])
+        # xxxx8888
+        # self.ClassHead = self._make_class_head(fpn_num=3, inchannels=cfg['out_channel'])
+        # self.BboxHead = self._make_bbox_head(fpn_num=3, inchannels=cfg['out_channel'])
+        # self.LandmarkHead = self._make_landmark_head(fpn_num=3, inchannels=cfg['out_channel'])
+        self.ClassHead = self._make_class_head(fpn_num=3, inchannels=out_channels)
+        self.BboxHead = self._make_bbox_head(fpn_num=3, inchannels=out_channels)
+        self.LandmarkHead = self._make_landmark_head(fpn_num=3, inchannels=out_channels)
 
     def _make_class_head(self, fpn_num=3, inchannels=64, anchor_num=2):
         classhead = nn.ModuleList()
@@ -105,23 +134,38 @@ class RetinaFace(nn.Module):
         return landmarkhead
 
     def forward(self, inputs):
+        # inputs.size() -- torch.Size([1, 3, 250, 250]), min = -119 , max = 151
         out = self.body(inputs)
+        # out.keys() -- odict_keys([1, 2, 3])
+        # out[1].size(), out[2].size(), out[3].size()
+        # [1, 64, 32, 32], [1, 128, 16, 16], [1, 256, 8, 8]
 
         # FPN
         fpn = self.fpn(out)
+        # type(fpn) -- <class 'list'>, (Pdb) len(fpn) -- 3
+        # fpn[0].size(), fpn[1].size(), fpn[2].size()
+        # [1, 64, 32, 32], [1, 64, 16, 16], [1, 64, 8, 8]
 
         # SSH
         feature1 = self.ssh1(fpn[0])
         feature2 = self.ssh2(fpn[1])
         feature3 = self.ssh3(fpn[2])
+        # feature1.size() -- [1, 64, 32, 32]
+        # feature2.size() -- [1, 64, 16, 16]
+        # feature3.size() -- [1, 64, 8, 8]
         features = [feature1, feature2, feature3]
 
         bbox_regressions = torch.cat([self.BboxHead[i](feature) for i, feature in enumerate(features)], dim=1)
         classifications = torch.cat([self.ClassHead[i](feature) for i, feature in enumerate(features)], dim=1)
         ldm_regressions = torch.cat([self.LandmarkHead[i](feature) for i, feature in enumerate(features)], dim=1)
 
+        # bbox_regressions.size() -- [1, 2688, 4]
+        # classifications.size() -- [1, 2688, 2]
+        # ldm_regressions.size() -- [1, 2688, 10]
+
         if self.phase == 'train':
             output = (bbox_regressions, classifications, ldm_regressions)
         else:
             output = (bbox_regressions, F.softmax(classifications, dim=-1), ldm_regressions)
+
         return output

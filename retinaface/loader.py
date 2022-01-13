@@ -4,7 +4,7 @@ import torch
 
 from retinaface.data import cfg_mnet, cfg_re50
 from retinaface.models.retinaface import RetinaFace
-
+import pdb
 
 def check_keys(model, pretrained_state_dict):
     ckpt_keys = set(pretrained_state_dict.keys())
@@ -27,6 +27,8 @@ def remove_prefix(state_dict, prefix):
 
 
 def load_model(net='mnet'):
+    # pp net -- 'mnet'
+    # ==> pretrained_path -- 'retinaface/weights/mobilenet0.25_Final.pth'
     if net == 'mnet':
         pretrained_path = 'retinaface/weights/mobilenet0.25_Final.pth'
         # print('Loading pretrained model from {}'.format(pretrained_path))
@@ -38,6 +40,7 @@ def load_model(net='mnet'):
 
     device = torch.cuda.current_device()
     pretrained_dict = torch.load(pretrained_path, map_location=lambda storage, loc: storage.cuda(device))
+    # "state_dict" in pretrained_dict.keys() -- False
     if "state_dict" in pretrained_dict.keys():
         pretrained_dict = remove_prefix(pretrained_dict['state_dict'], 'module.')
     else:
@@ -45,4 +48,6 @@ def load_model(net='mnet'):
     check_keys(model, pretrained_dict)
     model.load_state_dict(pretrained_dict, strict=False)
     # print('Finished loading model!')
+
+    # ==> model -- RetinaFace(
     return model

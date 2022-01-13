@@ -2,7 +2,7 @@ from itertools import product as product
 from math import ceil
 
 import torch
-
+import pdb
 
 class PriorBox(object):
     def __init__(self, cfg, image_size=None, phase='train'):
@@ -12,10 +12,15 @@ class PriorBox(object):
         self.clip = cfg['clip']
         self.image_size = image_size
         self.feature_maps = [[ceil(self.image_size[0] / step), ceil(self.image_size[1] / step)] for step in self.steps]
+        # self.feature_maps -- [[32, 32], [16, 16], [8, 8]]
         self.name = "s"
 
     def forward(self):
         anchors = []
+        # (Pdb) for k, f in enumerate(self.feature_maps):print(k, f)
+        # 0 [32, 32]
+        # 1 [16, 16]
+        # 2 [8, 8]
         for k, f in enumerate(self.feature_maps):
             min_sizes = self.min_sizes[k]
             for i, j in product(range(f[0]), range(f[1])):
@@ -29,6 +34,7 @@ class PriorBox(object):
 
         # back to torch land
         output = torch.Tensor(anchors).view(-1, 4)
+        # self.clip -- False
         if self.clip:
             output.clamp_(max=1, min=0)
         return output
