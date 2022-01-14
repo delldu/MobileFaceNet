@@ -28,7 +28,7 @@
 ##########################################################################
 
 
-from torchvision import T
+from torchvision import transforms as T
 
 DEFAULT_FACE_SIZE = (112, 112)
 

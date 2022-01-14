@@ -1,8 +1,109 @@
 import os
+import math
+from itertools import product as product
+import numpy as np
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models._utils as utils
+from torchvision import transforms as T
+
+import pdb
+
+
+class PriorBox(object):
+    def __init__(self, H = 256, W=256):
+        super(PriorBox, self).__init__()
+        self.min_sizes = [[16, 32], [64, 128], [256, 512]]
+        self.steps = [8, 16, 32]
+        self.H = H
+        self.W = W
+        self.feature_maps = [[math.ceil(self.H / step), math.ceil(self.W / step)] for step in self.steps]
+        # self.feature_maps -- [[32, 32], [16, 16], [8, 8]]
+
+    def forward(self):
+        anchors = []
+        # (Pdb) for k, f in enumerate(self.feature_maps):print(k, f)
+        # 0 [32, 32]
+        # 1 [16, 16]
+        # 2 [8, 8]
+        for k, f in enumerate(self.feature_maps):
+            min_sizes = self.min_sizes[k]
+            for i, j in product(range(f[0]), range(f[1])):
+                for min_size in min_sizes:
+                    s_kx = min_size / self.W
+                    s_ky = min_size / self.H
+                    dense_cx = [x * self.steps[k] / self.W for x in [j + 0.5]]
+                    dense_cy = [y * self.steps[k] / self.H for y in [i + 0.5]]
+                    for cy, cx in product(dense_cy, dense_cx):
+                        anchors += [cx, cy, s_kx, s_ky]
+
+        # back to torch land
+        output = torch.Tensor(anchors).view(-1, 4)
+        # cx.min(), cx.max() -- 0.0160, 1.0080, cy is same as cx
+        # s_kx.min(), s_kx.max() -- 0.0640, 2.0480, s_ky is same s_kx
+        return output
+
+# Adapted from https://github.com/Hakuyume/chainer-ssd
+def decode(loc, priors, variances=[0.1, 0.2]):
+    boxes = torch.cat(
+        (
+            priors[:, :2] + loc[:, :2] * variances[0] * priors[:, 2:],
+            priors[:, 2:] * torch.exp(loc[:, 2:] * variances[1]),
+        ),
+        1,
+    )
+    boxes[:, :2] -= boxes[:, 2:] / 2
+    boxes[:, 2:] += boxes[:, :2]
+    return boxes
+
+def decode_landm(pre, priors, variances=[0.1, 0.2]):
+    """
+        decoded landm predictions
+    """
+    landms = torch.cat(
+        (
+            priors[:, :2] + pre[:, :2] * variances[0] * priors[:, 2:],
+            priors[:, :2] + pre[:, 2:4] * variances[0] * priors[:, 2:],
+            priors[:, :2] + pre[:, 4:6] * variances[0] * priors[:, 2:],
+            priors[:, :2] + pre[:, 6:8] * variances[0] * priors[:, 2:],
+            priors[:, :2] + pre[:, 8:10] * variances[0] * priors[:, 2:],
+        ),
+        dim=1,
+    )
+    return landms
+
+def py_cpu_nms(dets, thresh):
+    """Pure Python NMS baseline."""
+    x1 = dets[:, 0]
+    y1 = dets[:, 1]
+    x2 = dets[:, 2]
+    y2 = dets[:, 3]
+    scores = dets[:, 4]
+
+    areas = (x2 - x1 + 1) * (y2 - y1 + 1)
+    order = scores.argsort()[::-1]
+
+    keep = []
+    while order.size > 0:
+        i = order[0]
+        keep.append(i)
+        xx1 = np.maximum(x1[i], x1[order[1:]])
+        yy1 = np.maximum(y1[i], y1[order[1:]])
+        xx2 = np.minimum(x2[i], x2[order[1:]])
+        yy2 = np.minimum(y2[i], y2[order[1:]])
+
+        w = np.maximum(0.0, xx2 - xx1 + 1)
+        h = np.maximum(0.0, yy2 - yy1 + 1)
+        inter = w * h
+        ovr = inter / (areas[i] + areas[order[1:]] - inter)
+
+        inds = np.where(ovr <= thresh)[0]
+        order = order[inds + 1]
+
+    return keep
+
 
 def conv_bn(inp, oup, stride=1, leaky=0):
     return nn.Sequential(
@@ -273,20 +374,92 @@ class Detector(object):
     def __init__(self, device=torch.device("cuda")):
         self.device = device
         self.backbone = get_backbone().to(device)
+        self.transform = T.Normalize([0.485, 0.456, 0.406], [1.0, 1.0, 1.0])
 
     def __call__(self, input_tensor):
+
+        for i in range(input_tensor.size(0)):
+            input_tensor[i] = self.transform(input_tensor[i])
+        input_tensor = input_tensor * 255.0
+
         with torch.no_grad():
-            bboxes, scores, landms = self.backbone(input_tensor)
-        return bboxes, scores, landms
+            loc, conf, landms = self.backbone(input_tensor)
+
+        # hyper parameters for NMS
+        confidence_threshold = 0.9
+        top_k = 5000
+        nms_threshold = 0.4
+        keep_top_k = 750
+
+        H, W = input_tensor.size(2), input_tensor.size(3)
+        scale = torch.Tensor([W, H, W, H]).to(self.device)
+
+        priorbox = PriorBox(H = H, W = W)
+        priors = priorbox.forward()
+        priors = priors.to(self.device)
+        prior_data = priors.data
+
+        boxes = decode(loc.data.squeeze(0), prior_data)
+        boxes = boxes * scale
+        boxes = boxes.cpu().numpy()
+        # boxes.shape -- (2688, 4)
+
+        scores = conf.squeeze(0).data.cpu().numpy()[:, 1]
+        landms = decode_landm(landms.data.squeeze(0), prior_data)
+        scale1 = torch.Tensor([W, H, W, H, W, H, W, H, W, H,]).to(self.device)
+        landms = landms * scale1
+        landms = landms.cpu().numpy()
+
+        # ignore low scores
+        # confidence_threshold -- 0.9
+        inds = np.where(scores > confidence_threshold)[0]
+        boxes = boxes[inds]
+        landms = landms[inds]
+        scores = scores[inds]
+
+        # keep top-K before NMS
+        order = scores.argsort()[::-1][:top_k]
+        boxes = boxes[order]
+        landms = landms[order]
+        scores = scores[order]
+
+        # do NMS
+        dets = np.hstack((boxes, scores[:, np.newaxis])).astype(np.float32, copy=False)
+        keep = py_cpu_nms(dets, nms_threshold)
+        dets = dets[keep, :]
+        landms = landms[keep]
+
+        # keep top-K faster NMS
+        dets = dets[:keep_top_k, :]
+        landms = landms[:keep_top_k, :]
+        # print(landms.shape)
+        landms = landms.reshape(-1, 5, 2)
+        # print(landms.shape)
+        landms = landms.transpose(0, 2, 1)
+        # print(landms.shape)
+        landms = landms.reshape(-1, 10)
+        # print(landms.shape)
+
+        # dets.shape, landms.shape -- ((1, 5), (1, 10))
+        # dets -- array([[ 78.220116  ,  79.84813   , 173.14445   , 195.16386   ,0.99955505]]
+        # -----------------------------------------------------------------------------------
+        # landms -- array([[102.47213 , 145.46236 , 125.38177 , 106.445854, 146.62794 ,
+        #         118.52239 , 115.24955 , 140.87106 , 159.90822 , 156.94913 ]]
+        return len(dets) > 0, dets, landms
 
 if __name__ == "__main__":
+    from PIL import Image
+
     model = Detector(torch.device("cuda"))
 
-    input_tensor = torch.randn(1, 3, 256, 256).to(model.device)
-    bboxes, scores, landms = model(input_tensor)
+    # input_tensor = torch.randn(1, 3, 256, 256).to(model.device)
+
+    image = Image.open("/tmp/lena.png").convert("RGB")
+    input_tensor = T.ToTensor()(image).to(model.device).unsqueeze(0)
+    hasface, bboxes, landms = model(input_tensor)
 
     print("input_tensor: ", input_tensor.size())
     print(model.backbone)
-    print("bboxes: ", bboxes.size())
-    print("scores: ", scores.size())
-    print("landms: ", landms.size())
+    print("detect: ", hasface)
+    print("bboxes: ", bboxes)
+    print("landms: ", landms)
