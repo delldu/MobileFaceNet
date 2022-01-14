@@ -1,6 +1,8 @@
 import os
+import math
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 import pdb
 
@@ -182,7 +184,7 @@ class MobileFaceNet(nn.Module):
         return x
 
 
-def get_model():
+def get_backbone():
     """Create model."""
     cdir = os.path.dirname(__file__)
     checkpoint = "models/mobile_face.pth" if cdir == "" else cdir + "/models/mobile_face.pth"
@@ -194,12 +196,37 @@ def get_model():
     return model
 
 
-if __name__ == "__main__":
-    model = get_model()
-    input_tensor = torch.randn(2, 3, 112, 112)
-    with torch.no_grad():
-        output_tensor = model(input_tensor)
+class Extractor(object):
+    '''Mobile Face Feature extractor'''
 
-    print(model)
+    def __init__(self, device=torch.device("cuda")):
+        self.device = device
+        self.backbone = get_backbone().to(device)
+
+    def __call__(self, input_tensor):
+        with torch.no_grad():
+            output_tensor_0 = self.backbone(input_tensor)
+            output_tensor_1 = self.backbone(torch.flip(input_tensor, [3]))
+        output_tensor = output_tensor_0 + output_tensor_1
+        return output_tensor/torch.norm(output_tensor)
+
+    def verify(self, f1, f2):
+        LFW_SAMEFACE_THRESHOLD = 73.50
+        cosine = torch.dot(f1, f2).clamp(-1.0, 1.0)
+        theta = math.acos(cosine.item())
+        theta = theta * 180 / math.pi
+        is_same = (theta < LFW_SAMEFACE_THRESHOLD)
+        return is_same, theta
+
+if __name__ == "__main__":
+    model = Extractor()
+
+    input_tensor = torch.randn(2, 3, 256, 256).to(model.device)
+    output_tensor = model(input_tensor)
+
+    print(model.backbone)
     print("input_tensor: ", input_tensor.size())
     print("output_tensor: ", output_tensor.size())
+
+    is_same, theta = model.verify(output_tensor[0], output_tensor[1])
+    print(f"is same face ? {is_same}, theta: {theta}")
