@@ -11,7 +11,6 @@ from torchvision import transforms as T
 
 import pdb
 
-
 class PriorBox(object):
     def __init__(self, H = 256, W=256):
         super(PriorBox, self).__init__()
@@ -448,60 +447,6 @@ class Detector(object):
         return len(dets) > 0, dets, landms
 
 
-def draw_bboxes(image, bounding_boxes, facial_landmarks=[]):
-    from PIL import ImageDraw
-
-    draw = ImageDraw.Draw(image)
-    for b in bounding_boxes:
-        box = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
-        draw.rectangle(box, fill=None, outline="#FFFFFF", width=1)
-
-    for p in facial_landmarks:
-        for i in range(5):
-            box = (int(p[i]) - 1, int(p[i + 5]) - 1, int(p[i]) + 1, int(p[i + 5]) + 1)
-            draw.ellipse(box, fill=None, outline="#00FF00", width=1)
-
-def get_faces(image, bounding_boxes):
-    faces = []
-    for b in bounding_boxes:
-        box = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
-        faces.append(image.crop(box))
-    return faces
-
-def align(image, landmark):
-    '''
-    transform matrix ...
-    [a, b, c]
-    [d, e, f] * landmark = stdard_landmark
-    [0, 0, 1]
-    '''
-    # STANDARD_FACIAL_POINTS = [
-    #     [38.29459953, 51.69630051],
-    #     [73.53179932, 51.50139999],
-    #     [56.02519989, 71.73660278],
-    #     [41.54930115, 92.3655014 ],
-    #     [70.72990036, 92.20410156]
-    # ]
-    # STANDARD_CROP_SIZE = (112, 112)
-
-    points = landmark.reshape(2,5).T
-
-    center_x, center_y = points.mean(axis=0)
-    eye_dx = points[1][0] - points[0][0]
-    eye_dy = points[1][1] - points[0][1]
-
-    eye_cy = (points[1][1] + points[0][1])/2.0
-    theta = np.degrees(np.arctan2(eye_dy, eye_dx))
-
-    scale_x = eye_dx/(73.53 - 38.29)
-    mouth_cy = (points[4][1] + points[4][1])/2.0
-    scale_y = (mouth_cy - eye_cy)/(92.28 - 51.60)
-
-    rimage = image.rotate(theta, center=(center_x, center_y))
-    crop_box = (center_x - 56 * scale_x, center_y - 56 * scale_y, center_x + 56 * scale_x, center_y + 56 * scale_y) 
-    
-    return rimage.crop(crop_box)
-    #.resize((112, 112))    
 
 if __name__ == "__main__":
     import sys
@@ -515,18 +460,16 @@ if __name__ == "__main__":
     image = Image.open(sys.argv[1]).convert("RGB")
 
     input_tensor = T.ToTensor()(image).to(model.device).unsqueeze(0)
-    hasface, bboxes, landms = model(input_tensor)
+    hasface, dets, landms = model(input_tensor)
 
-    print("input_tensor: ", input_tensor.size())
     print(model.backbone)
+    print("input_tensor: ", input_tensor.size())
     print("detect: ", hasface)
-    print("bboxes: ", bboxes)
+    print("bboxes: ", dets)
     print("landms: ", landms)
 
     if hasface:
-        draw_bboxes(image, bboxes, landms)
+        draw(image, bboxes, landms)
     # image.show()
 
-    # faces = get_faces(image, bboxes)
-    # faces[0].show()
-    align(image, landms[0]).show()
+    # align(image, landms)

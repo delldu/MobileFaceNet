@@ -8,58 +8,118 @@
 # ***
 # ************************************************************************************/
 #
+__vesion__ = "1.0.0"
 
-############################ mobile_face API ############################
-#
-# d = mobile_face.dector()
-# hasface, bboxes, landms = d(input_tensor)
-
-# e = mobile_face.extractor()
-# f1 = e(face_tensor1)
-# f2 = e(face_tensor1)
-# is_same_face = e.verify(f1, f2)
-#
-# Swap face
-# face1, landms1 = mobile_face.get(input_tensor1, bbox1, landmark1)
-# face2, landms2 = mobile_face.get(input_tensor2, bbox2, landmark2)
-# new_face = mobile_face.transform(face1, landms1, face2, landms2)
-# mobile_face.set(input_tensor, bbox1, new_face)
-# 
-##########################################################################
-
-
+import torch
 from torchvision import transforms as T
+from PIL import ImageDraw
+import numpy as np
 
-DEFAULT_FACE_SIZE = (112, 112)
+from . import mobileface
+from . import retinaface
 
-def face_tensor(image):
-    '''image is Pillow image object, return 1xCxHxW tensor'''
+# reference facial points, a list of coordinates (x,y)
+REFERENCE_FACE_POINTS = [
+    [30.29459953, 51.69630051],
+    [65.53179932, 51.50139999],
+    [48.02519989, 71.73660278],
+    [33.54930115, 92.3655014],
+    [62.72990036, 92.20410156],
+]
+# (width, height)
+REFERENCE_FACE_SIZE = (96, 112)
 
-    t = T.Compose([
-        T.ToTensor(),
-        T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ])
-    return t(image)
+# standard facial points, a list of coordinates (x,y)
+STANDARD_FACE_POINTS = [
+    [38.29459953, 51.69630051],
+    [73.53179932, 51.50139999],
+    [56.02519989, 71.73660278],
+    [41.54930115, 92.3655014],
+    [70.72990036, 92.20410156],
+]
+# (width, height)
+STANDARD_FACE_SIZE = (112, 112)
 
-    # scale = torch.Tensor([img.shape[1], img.shape[0], img.shape[1], img.shape[0]])
-    # img -= (104, 117, 123)
-    # img = img.transpose(2, 0, 1)
-    # img = torch.from_numpy(img).unsqueeze(0)
+
+def tensor(image):
+    """image is Pillow image object, return 1xCxHxW tensor"""
+    t = T.Compose(
+        [
+            T.ToTensor(),
+        ]
+    )
+    return t(image).unsqueeze(0)
+
 
 def detector(device=torch.device("cuda")):
+    return retinaface.Detector(device)
 
-    return None
 
 def extractor(device=torch.device("cuda")):
-    return None
+    return mobileface.Extractor(device)
 
-def get(image_tensor, bbox, landmark):
-    return None
 
-def set(image_tensor, bbox, new_sub):
-    pass
+def draw(image, dets, landms):
+    draw = ImageDraw.Draw(image)
+    for b in dets:
+        # box = (x1, y1, x2, y2)
+        box = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
+        draw.rectangle(box, fill=None, outline="#FFFFFF", width=1)
 
-def transform(sface_tensor, slandmark, dface_tensor, dlandmark):
-    '''New face tensor, size like as dst_face_tensor'''
-    return None
+    for p in landms:
+        for i in range(5):
+            # box = (x1, y1, x2, y2)
+            box = (int(p[i]) - 1, int(p[i + 5]) - 1, int(p[i]) + 1, int(p[i + 5]) + 1)
+            draw.ellipse(box, fill=None, outline="#00FF00", width=1)
 
+
+def crop(image, dets):
+    faces = []
+    for b in dets:
+        # box = (x1, y1, x2, y2)
+        box = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
+        faces.append(image.crop(box))
+    return faces
+
+
+def align(image, landms):
+    faces = []
+
+    eye_distance = STANDARD_FACE_POINTS[1][0] - STANDARD_FACE_POINTS[0][0]
+
+    mid_mouth_y = (STANDARD_FACE_POINTS[3][1] + STANDARD_FACE_POINTS[4][1]) / 2.0
+    mid_eye_y = (STANDARD_FACE_POINTS[0][1] + STANDARD_FACE_POINTS[1][1]) / 2.0
+    eye_to_mouth_distance = mid_mouth_y - mid_eye_y
+
+    half_face_width = STANDARD_FACE_SIZE[0] / 2.0
+    half_face_height = STANDARD_FACE_SIZE[1] / 2.0
+
+    for landmark in landms:
+        points = landmark.reshape(2, 5).T
+
+        # center
+        center_x, center_y = points.mean(axis=0)
+
+        # theta
+        eye_dx = points[1][0] - points[0][0]
+        eye_dy = points[1][1] - points[0][1]
+        theta = np.degrees(np.arctan2(eye_dy, eye_dx))
+
+        # scale x/y
+        scale_x = eye_dx / eye_distance
+        mouth_cy = (points[3][1] + points[4][1]) / 2.0
+        eye_cy = (points[1][1] + points[0][1]) / 2.0
+        scale_y = (mouth_cy - eye_cy) / eye_to_mouth_distance
+
+        # rotate
+        nimage = image.rotate(theta, center=(center_x, center_y))
+
+        # crop
+        crop_box = (
+            center_x - half_face_width * scale_x,
+            center_y - half_face_height * scale_y,
+            center_x + half_face_width * scale_x,
+            center_y + half_face_height * scale_y,
+        )
+        faces.append(nimage.crop(crop_box).resize(STANDARD_FACE_SIZE))
+    return faces
