@@ -7,6 +7,7 @@ from torchvision import transforms as T
 
 import pdb
 
+
 def _make_divisible(v, divisor, min_value=None):
     """
     This function is taken from the original tf repo.
@@ -198,7 +199,7 @@ def get_backbone():
 
 
 class Extractor(object):
-    '''Mobile face feature extractor'''
+    """Mobile face feature extractor"""
 
     def __init__(self, device=torch.device("cuda")):
         self.device = device
@@ -206,7 +207,7 @@ class Extractor(object):
         self.transform = T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 
     def __call__(self, input_tensor):
-        '''input_tensor must be BxCxHxW and H, W must be 112, element range is [0, 1.0]'''
+        """input_tensor must be BxCxHxW and H, W must be 112, element range is [0, 1.0]"""
         assert input_tensor.size(2) == 112 and input_tensor.size(3) == 112
 
         for i in range(input_tensor.size(0)):
@@ -217,15 +218,16 @@ class Extractor(object):
             output_tensor_1 = self.backbone(torch.flip(input_tensor, [3]))
 
         output_tensor = output_tensor_0 + output_tensor_1
-        return output_tensor/torch.norm(output_tensor)
+        return output_tensor / torch.norm(output_tensor)
 
     def verify(self, f1, f2):
         LFW_SAME_FACE_THRESHOLD = 73.50
         cosine = torch.dot(f1, f2).clamp(-1.0, 1.0)
         theta = math.acos(cosine.item())
         theta = theta * 180 / math.pi
-        is_same = (theta < LFW_SAME_FACE_THRESHOLD)
+        is_same = theta < LFW_SAME_FACE_THRESHOLD
         return is_same, theta
+
 
 if __name__ == "__main__":
     model = Extractor()

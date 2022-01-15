@@ -15,12 +15,8 @@ from PIL import Image
 import mobile_face
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    parser.add_argument(
-        "--input", type=str, default="images/lena.png", help="input file"
-    )
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("--input", type=str, default="images/lena.png", help="input file")
     args = parser.parse_args()
 
     image = Image.open(args.input).convert("RGB")

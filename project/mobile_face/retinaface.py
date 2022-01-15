@@ -11,8 +11,9 @@ from torchvision import transforms as T
 
 import pdb
 
+
 class PriorBox(object):
-    def __init__(self, H = 256, W=256):
+    def __init__(self, H=256, W=256):
         super(PriorBox, self).__init__()
         self.min_sizes = [[16, 32], [64, 128], [256, 512]]
         self.steps = [8, 16, 32]
@@ -44,6 +45,7 @@ class PriorBox(object):
         # s_kx.min(), s_kx.max() -- 0.0640, 2.0480, s_ky is same s_kx
         return output
 
+
 # Adapted from https://github.com/Hakuyume/chainer-ssd
 def decode(loc, priors, variances=[0.1, 0.2]):
     boxes = torch.cat(
@@ -57,9 +59,10 @@ def decode(loc, priors, variances=[0.1, 0.2]):
     boxes[:, 2:] += boxes[:, :2]
     return boxes
 
+
 def decode_landm(pre, priors, variances=[0.1, 0.2]):
     """
-        decoded landm predictions
+    decoded landm predictions
     """
     landms = torch.cat(
         (
@@ -72,6 +75,7 @@ def decode_landm(pre, priors, variances=[0.1, 0.2]):
         dim=1,
     )
     return landms
+
 
 def py_cpu_nms(dets, thresh):
     """Pure Python NMS baseline."""
@@ -283,7 +287,7 @@ class RetinaFace(nn.Module):
         self.phase = phase
         backbone = MobileNetV1()
 
-        self.body = utils.IntermediateLayerGetter(backbone, {'stage1': 1, 'stage2': 2, 'stage3': 3})
+        self.body = utils.IntermediateLayerGetter(backbone, {"stage1": 1, "stage2": 2, "stage3": 3})
         in_channels_stage2 = 32
         in_channels_list = [
             in_channels_stage2 * 2,
@@ -367,8 +371,9 @@ def get_backbone():
 
     return model
 
+
 class Detector(object):
-    '''Mobile face detecor'''
+    """Mobile face detecor"""
 
     def __init__(self, device=torch.device("cuda")):
         self.device = device
@@ -393,7 +398,7 @@ class Detector(object):
         H, W = input_tensor.size(2), input_tensor.size(3)
         scale = torch.Tensor([W, H, W, H]).to(self.device)
 
-        priorbox = PriorBox(H = H, W = W)
+        priorbox = PriorBox(H=H, W=W)
         priors = priorbox.forward()
         priors = priors.to(self.device)
         prior_data = priors.data
@@ -405,7 +410,20 @@ class Detector(object):
 
         scores = conf.squeeze(0).data.cpu().numpy()[:, 1]
         landms = decode_landm(landms.data.squeeze(0), prior_data)
-        scale1 = torch.Tensor([W, H, W, H, W, H, W, H, W, H,]).to(self.device)
+        scale1 = torch.Tensor(
+            [
+                W,
+                H,
+                W,
+                H,
+                W,
+                H,
+                W,
+                H,
+                W,
+                H,
+            ]
+        ).to(self.device)
         landms = landms * scale1
         landms = landms.cpu().numpy()
 
@@ -445,7 +463,6 @@ class Detector(object):
         # landms -- array([[102.47213 , 145.46236 , 125.38177 , 106.445854, 146.62794 ,
         #         118.52239 , 115.24955 , 140.87106 , 159.90822 , 156.94913 ]]
         return len(dets) > 0, dets, landms
-
 
 
 if __name__ == "__main__":
