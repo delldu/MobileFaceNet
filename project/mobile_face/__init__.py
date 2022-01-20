@@ -111,10 +111,21 @@ def align(image, landms):
         eye_cy = (points[1][1] + points[0][1]) / 2.0
         scale_y = (mouth_cy - eye_cy) / eye_to_mouth_distance
 
+        # Fast align: first crop, then rotate
+        # Suppose face height < 4 * (mout_cy - eye_cy), width < 4 * eye_cy
+        left = max(center_x - 2 * eye_dx, 0)
+        top = max(center_y - 2 * (mouth_cy - eye_cy), 0)
+        right = min(center_x + 2 * eye_dx, image.width)
+        bottom = min(center_y + 2 * (mouth_cy - eye_cy), image.height)
+        crop_box = (left, top, right, bottom)
+        nimage = image.crop(crop_box)
+        # new center
+        center_x -= left
+        center_y -= top
         # rotate
-        nimage = image.rotate(theta, center=(center_x, center_y))
+        nimage = nimage.rotate(theta, center=(center_x, center_y))
 
-        # crop
+        # final crop to standard size: STANDARD_FACE_SIZE
         crop_box = (
             center_x - half_face_width * scale_x,
             center_y - half_face_height * scale_y,
