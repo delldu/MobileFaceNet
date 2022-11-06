@@ -110,13 +110,7 @@ class InvertedResidual(nn.Module):
 class MobileFaceNet(nn.Module):
     def __init__(self, width_mult=1.0, inverted_residual_setting=None, round_nearest=8):
         """
-        MobileNet V2 main class
-        Args:
-            num_classes (int): Number of classes
-            width_mult (float): Width multiplier - adjusts number of channels in each layer by this amount
-            inverted_residual_setting: Network structure
-            round_nearest (int): Round the number of channels in each layer to be a multiple of this number
-            Set to 1 to turn off rounding
+        MobileNet main class
         """
         super(MobileFaceNet, self).__init__()
         block = InvertedResidual

@@ -6,10 +6,12 @@ import pdb
 
 
 class PriorBox(object):
-    def __init__(self, cfg, image_size=None, phase="train"):
+    def __init__(self, cfg, image_size=None):
         super(PriorBox, self).__init__()
         self.min_sizes = cfg["min_sizes"]
+        # self.min_sizes -- [[16, 32], [64, 128], [256, 512]]
         self.steps = cfg["steps"]
+        # self.steps -- [8, 16, 32]
         self.clip = cfg["clip"]
         self.image_size = image_size
         self.feature_maps = [[ceil(self.image_size[0] / step), ceil(self.image_size[1] / step)] for step in self.steps]
@@ -25,6 +27,8 @@ class PriorBox(object):
         for k, f in enumerate(self.feature_maps):
             min_sizes = self.min_sizes[k]
             for i, j in product(range(f[0]), range(f[1])):
+                # f[0], f[1] -- (32, 32)
+                # pp j -- from 0 to 32, i--from 0 32 ?
                 for min_size in min_sizes:
                     s_kx = min_size / self.image_size[1]
                     s_ky = min_size / self.image_size[0]
@@ -38,4 +42,7 @@ class PriorBox(object):
         # self.clip -- False
         if self.clip:
             output.clamp_(max=1, min=0)
+        # cx.min(), cx.max() -- 0.0160, 1.0080, cy is same as cx
+        # s_kx.min(), s_kx.max() -- 0.0640, 2.0480, s_ky is same s_kx
+
         return output

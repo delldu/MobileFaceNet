@@ -1,6 +1,6 @@
 import os
 import math
-from itertools import product as product
+# from itertools import product as product
 import numpy as np
 
 import torch
@@ -30,13 +30,18 @@ class PriorBox(object):
         # 2 [8, 8]
         for k, f in enumerate(self.feature_maps):
             min_sizes = self.min_sizes[k]
-            for i, j in product(range(f[0]), range(f[1])):
-                for min_size in min_sizes:
-                    s_kx = min_size / self.W
-                    s_ky = min_size / self.H
-                    dense_cx = [x * self.steps[k] / self.W for x in [j + 0.5]]
-                    dense_cy = [y * self.steps[k] / self.H for y in [i + 0.5]]
-                    for cy, cx in product(dense_cy, dense_cx):
+            # for i, j in product(range(f[0]), range(f[1])):
+            for i in range(f[0]):
+                for j in range(f[1]):
+                    for min_size in min_sizes:
+                        s_kx = min_size / self.W
+                        s_ky = min_size / self.H
+                        # dense_cx = [x * self.steps[k] / self.W for x in [j + 0.5]]
+                        # dense_cy = [y * self.steps[k] / self.H for y in [i + 0.5]]
+                        # for cy, cx in product(dense_cy, dense_cx):
+                        #     anchors += [cx, cy, s_kx, s_ky]
+                        cx = (j + 0.5) * self.steps[k] / self.W
+                        cy = (i + 0.5) * self.steps[k] / self.H
                         anchors += [cx, cy, s_kx, s_ky]
 
         # back to torch land
@@ -53,7 +58,7 @@ def decode(loc, priors, variances=[0.1, 0.2]):
             priors[:, :2] + loc[:, :2] * variances[0] * priors[:, 2:],
             priors[:, 2:] * torch.exp(loc[:, 2:] * variances[1]),
         ),
-        1,
+        dim=1,
     )
     boxes[:, :2] -= boxes[:, 2:] / 2
     boxes[:, 2:] += boxes[:, :2]
@@ -64,6 +69,8 @@ def decode_landm(pre, priors, variances=[0.1, 0.2]):
     """
     decoded landm predictions
     """
+    # pre.size() -- [2688, 10]
+    # priors.size() -- [2688, 4]
     landms = torch.cat(
         (
             priors[:, :2] + pre[:, :2] * variances[0] * priors[:, 2:],
@@ -410,20 +417,7 @@ class Detector(object):
 
         scores = conf.squeeze(0).data.cpu().numpy()[:, 1]
         landms = decode_landm(landms.data.squeeze(0), prior_data)
-        scale1 = torch.Tensor(
-            [
-                W,
-                H,
-                W,
-                H,
-                W,
-                H,
-                W,
-                H,
-                W,
-                H,
-            ]
-        ).to(self.device)
+        scale1 = torch.Tensor([W, H] * 5).to(self.device)
         landms = landms * scale1
         landms = landms.cpu().numpy()
 
@@ -436,6 +430,7 @@ class Detector(object):
 
         # keep top-K before NMS
         order = scores.argsort()[::-1][:top_k]
+
         boxes = boxes[order]
         landms = landms[order]
         scores = scores[order]
@@ -443,6 +438,8 @@ class Detector(object):
         # do NMS
         dets = np.hstack((boxes, scores[:, np.newaxis])).astype(np.float32, copy=False)
         keep = py_cpu_nms(dets, nms_threshold)
+        # type(keep) -- <class 'list'>, keep == [0]
+
         dets = dets[keep, :]
         landms = landms[keep]
 

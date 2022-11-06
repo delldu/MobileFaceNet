@@ -16,8 +16,17 @@ REFERENCE_FACIAL_POINTS = [
     [33.54930115, 92.3655014],
     [62.72990036, 92.20410156],
 ]
-
 DEFAULT_CROP_SIZE = (96, 112)
+
+# standard facial points, a list of coordinates (x,y)
+STANDARD_FACIAL_POINTS = [
+    [38.29459953, 51.69630051],
+    [73.53179932, 51.50139999],
+    [56.02519989, 71.73660278],
+    [41.54930115, 92.3655014 ],
+    [70.72990036, 92.20410156]
+]
+STANDARD_CROP_SIZE = (112, 112)
 
 
 class FaceWarpException(Exception):
@@ -107,6 +116,12 @@ def get_reference_facial_points(output_size=None, inner_padding_factor=0.0, oute
     #
     # print('===> end get_reference_facial_points\n')
 
+    print(REFERENCE_FACIAL_POINTS)
+    print(reference_5point)
+
+    pdb.set_trace()
+    
+
     return reference_5point
 
 
@@ -156,19 +171,21 @@ def warp_and_crop_face(src_img, facial_pts, reference_pts=None, crop_size=(96, 1
             )
 
     ref_pts = np.float32(reference_pts)
-    ref_pts_shp = ref_pts.shape
-    if max(ref_pts_shp) < 3 or min(ref_pts_shp) != 2:
+    ref_pts_shape = ref_pts.shape
+    if max(ref_pts_shape) < 3 or min(ref_pts_shape) != 2:
         raise FaceWarpException("reference_pts.shape must be (K,2) or (2,K) and K>2")
 
-    if ref_pts_shp[0] == 2:
+    # ref_pts_shape -- (5, 2)
+    if ref_pts_shape[0] == 2:
         ref_pts = ref_pts.T
 
     src_pts = np.float32(facial_pts)
-    src_pts_shp = src_pts.shape
-    if max(src_pts_shp) < 3 or min(src_pts_shp) != 2:
+    src_pts_shape = src_pts.shape
+    if max(src_pts_shape) < 3 or min(src_pts_shape) != 2:
         raise FaceWarpException("facial_pts.shape must be (K,2) or (2,K) and K>2")
 
-    if src_pts_shp[0] == 2:
+    # src_pts_shape -- (2, 5)
+    if src_pts_shape[0] == 2:
         src_pts = src_pts.T
 
     if src_pts.shape != ref_pts.shape:
@@ -185,7 +202,9 @@ def warp_and_crop_face(src_img, facial_pts, reference_pts=None, crop_size=(96, 1
         tform = trans.SimilarityTransform()
         tform.estimate(src_pts, ref_pts)
         tfm = tform.params[0:2, :]
+        # tfm.shape -- (2, 3)
 
+    # crop_size -- (112, 112)
     face_img = cv2.warpAffine(src_img, tfm, (crop_size[0], crop_size[1]))
 
     return face_img  # BGR

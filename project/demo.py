@@ -48,3 +48,5 @@ if __name__ == "__main__":
             ftensor = mobile_face.tensor(fimage).to(extractor.device)
             f = extractor(ftensor)
             print("face feature size: ", f.size())
+            # face feature size:  [1, 128]
+

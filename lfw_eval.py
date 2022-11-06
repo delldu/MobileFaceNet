@@ -353,7 +353,7 @@ def get_threshold():
 
 
 def lfw_test(model):
-    debug = False
+    debug = True
     filename = "data/lfw-funneled.tgz"
     if not os.path.isdir("data/lfw_funneled"):
         print("Extracting {}...".format(filename))
@@ -401,15 +401,16 @@ if __name__ == "__main__":
     # model.eval()
     # torch.save(model.state_dict(), "/tmp/face.pth")
 
-    model = MobileFaceNet()
-    model.load_state_dict(torch.load("/tmp/face.pth"))
-    model = model.to(device)
-    model.eval()
+    # model = MobileFaceNet()
+    # model.load_state_dict(torch.load("/tmp/face.pth"))
+    # model = model.to(device)
+    # model.eval()
 
-    acc, threshold = lfw_test(model)
+    # acc, threshold = lfw_test(model)
 
-    print("Visualizing {}...".format(angles_file))
-    visualize(threshold)
+    # print("Visualizing {}...".format(angles_file))
+    # visualize(threshold)
 
     print("error analysis...")
+    threshold = 73.49470103143538
     error_analysis(threshold)
